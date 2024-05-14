@@ -106,7 +106,7 @@ for (int cal_int = 0; cal_int < 1500 ; cal_int ++)
     read_mpu_6050_data();                                              
     acc_x_cal += acc_x;                                              
     acc_y_cal += acc_y;                                              
-   // acc_z_cal += acc_z;                                             
+   // acc_z_cal += acc_z;   UNCOMMENT only and ONLY if you are actually in space. DO NOT UNCOMMENT ON EARTH. BAD THINGS HAPPEN!                                          
     delay(3);                                                          
   }
   acc_x_cal /= 1500;                                                  
