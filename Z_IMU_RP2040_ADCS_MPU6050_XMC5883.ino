@@ -2,7 +2,7 @@
 ////////////////////////////////////////////  
 /*
 Zarvan Movdawalla
-Version 0.1
+Version 0.2
 MPU6050 , RP2040
 CF + AHRS 
 DUAL CORE COMPATIBLE
@@ -38,6 +38,7 @@ int gyro_x, gyro_y, gyro_z;
 float acc_x, acc_y, acc_z, acc_total_vector;
 int temperature;
 float gyro_x_cal, gyro_y_cal, gyro_z_cal;
+float acc_x_cal, acc_y_cal, acc_z_cal;
 long loop_timer;
 int lcd_loop_counter;
 float angle_pitch, angle_roll;
@@ -48,8 +49,6 @@ float angle_pitch_output, angle_roll_output;
 int pitch, roll = 0;
 float gyro_x_telem, gyro_y_telem = 0;
 
-float gy_pitch_bias = 0.999;
-float gy_roll_bias  = 0.999;
 
 float thrustaccel = 0;
 float totalaccel  = 0;
@@ -80,24 +79,37 @@ void setup()
   opfreq = rp2040.f_cpu()/1000000;
   Serial.println("RP2040 operating at: ");
   Serial.println(opfreq);
-  delay(1000);
   Serial.println("GYRO CAL INIT, NULLING BIASES"); 
-  delay(1000);
+  delay(500);
 
   
-  for (int cal_int = 0; cal_int < 3500 ; cal_int ++)
+  for (int cal_int = 0; cal_int < 1500 ; cal_int ++)
   {                 
 
-    read_mpu_6050_data();                                              //Read the raw acc and gyro data from the MPU-6050
-    gyro_x_cal += gyro_x;                                              //Add the gyro x-axis offset to the gyro_x_cal variable
-    gyro_y_cal += gyro_y;                                              //Add the gyro y-axis offset to the gyro_y_cal variable
-    gyro_z_cal += gyro_z;                                              //Add the gyro z-axis offset to the gyro_z_cal variable
-    delay(3);                                                          //Delay 3us to simulate the 250Hz program loop
+    read_mpu_6050_data();                                              
+    gyro_x_cal += gyro_x;                                              
+    gyro_y_cal += gyro_y;                                              
+    gyro_z_cal += gyro_z;                                             
+    delay(3);                                                          
   }
-  gyro_x_cal /= 3500;                                                  //Divide the gyro_x_cal variable by 2000 to get the avarage offset
-  gyro_y_cal /= 3500;                                                  //Divide the gyro_y_cal variable by 2000 to get the avarage offset
-  gyro_z_cal /= 3500;                                                  //Divide the gyro_z_cal variable by 2000 to get the avarage offset
+  gyro_x_cal /= 1500;                                                  
+  gyro_y_cal /= 1500;                                                  
+  gyro_z_cal /= 1500;                                                 
 
+
+
+for (int cal_int = 0; cal_int < 1500 ; cal_int ++)
+  {                 
+
+    read_mpu_6050_data();                                              
+    acc_x_cal += acc_x;                                              
+    acc_y_cal += acc_y;                                              
+   // acc_z_cal += acc_z;                                             
+    delay(3);                                                          
+  }
+  acc_x_cal /= 1500;                                                  
+  acc_y_cal /= 1500;                                                  
+  acc_z_cal /= 1500;   
 
   Serial.println("GYRO CAL RESULTS: X, Y, Z");
   Serial.print(gyro_x_cal);
@@ -105,7 +117,14 @@ void setup()
   Serial.print(gyro_y_cal);
   Serial.print(" ");
   Serial.println(gyro_z_cal);
-  delay(3500);
+  
+  Serial.println("ACCEL CAL RESULTS: X, Y, Z");
+  Serial.print(acc_x_cal);
+  Serial.print(" ");
+  Serial.print(acc_y_cal);
+  Serial.print(" ");
+  Serial.println(acc_z_cal);
+  delay(4000);
 
 
   rp2040.wdt_begin(500);
@@ -132,15 +151,23 @@ void loop(){
   angle_pitch += angle_roll * sin(gyro_z * 0.000001066);              
   angle_roll -= angle_pitch * sin(gyro_z * 0.000001066);              
   
+//Elimination of steady-state-offset (SSO) errors, done!  
+acc_x -= acc_x_cal;
+acc_y -= acc_y_cal;
+//acc_z -= acc_x_cal; COMMENTED, DUE TO WEIRDNESS IN CALIB DUE TO EARTH'S GRAV
+
+//Elimination of scaling errors, done!  
+acc_x *= 1;
+acc_y *= 1;
+acc_z *= 1.0242; 
+
   acc_total_vector = sqrt((acc_x*acc_x)+(acc_y*acc_y)+(acc_z*acc_z));  
   
-  totalaccel   = acc_total_vector/1672;
+  totalaccel   = acc_total_vector/1671;
   thrustaccel  = acc_z/1671;
   xaccelcorrect= acc_x/1671;
   yaccelcorrect= acc_y/1671;
-
-  angle_pitch_output = angle_pitch_output * 0 + angle_pitch * 1;   
-  angle_roll_output = angle_roll_output * 0 + angle_roll * 1;     
+   
   
   temperature = ((temperature+521)/340) + 35;
 
