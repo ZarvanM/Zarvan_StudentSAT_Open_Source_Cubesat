@@ -3,6 +3,11 @@
 /*
 Zarvan Movdawalla
 Version 0.2
+________________________________________
+DEVELOPED AT MPSTME, INDIA.
+PART OF ASLS (Air Sea Land Space) initiative by Zarvan Movdawalla.
+
+
 MPU6050 , RP2040
 CF + AHRS 
 DUAL CORE COMPATIBLE
@@ -12,9 +17,6 @@ STRICTLY not for safety-critical/unsafe/hazardous applications.
 
 Licensed under: CC BY-NC-SA
 
-Disclaimer: Software is provided as-is, we make absolutely no claim or warranty towards its safety and reliability. It is purely an evaluation tool for advanced computing applications with microcontrollers.
-Users acknowledge and agree that the use of the Software involves inherent risks, including but not limited to the risk of hardware damage, injury, or loss of property. 
-Users assume all risks associated with the use of ZarvanM's AHRS-PID algorithm and software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -24,7 +26,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-
+Special thanks to Joop Brokking (for IMU CF methodology), Earle F. Philhower III (for RP2040 Arduino Core). This ADCS is based off of their pioneering work.
 
 
 
