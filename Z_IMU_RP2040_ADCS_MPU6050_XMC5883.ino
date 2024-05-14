@@ -65,7 +65,7 @@ void setup()
   Serial.begin(115200);  
     while (!Serial)
     {
-    delay(1); // will pause Zero, Leonardo, etc until serial console opens  
+    delay(1); // Avoids WEIRD serial garbage and bugginess. Remove SERIAL usage once done debugging. No one has USB in space...
     }
 
 
