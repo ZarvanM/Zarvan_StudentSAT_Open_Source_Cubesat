@@ -35,9 +35,9 @@ Special thanks to Joop Brokking (for IMU CF methodology), Earle F. Philhower III
 ////////////////////////////////////////////////
 
 #include <Wire.h>
-#include <DFRobot_QMC5883.h>
+#include <QMC5883LCompass.h>
 
-DFRobot_QMC5883 compass(&Wire, QMC5883_ADDRESS);
+QMC5883LCompass compass;
 
 int gyro_roll, gyro_pitch, gyro_yaw;
 float acc_x, acc_y, acc_z, acc_total_vector;
@@ -92,19 +92,11 @@ void setup()
   Serial.println("RP2040 operating at: ");
   Serial.println(opfreq);
     
-    while (!compass.begin())
-  {
-    Serial.println("COMPASS FAILURE: COMP NOINIT");
-    delay(500);
-  }
+
   /////////////////////////////////////////////////////////////// COMPASS CONFIG
   Serial.println("COMPASS INIT SUCCESS, PROCEED "); 
 
-    compass.setRange(QMC5883_RANGE_2GA);
-    compass.setMeasurementMode(QMC5883_CONTINOUS);
-    compass.setDataRate(QMC5883_DATARATE_50HZ);
-    compass.setSamples(QMC5883_SAMPLES_8);
-    compass.setDeclinationAngle(0);
+  compass.init();
 
   Serial.println("COMPASS CONF SUCCESS, PROCEED "); 
 
@@ -153,13 +145,13 @@ for (int cal_int = 0; cal_int < 500 ; cal_int ++)
   Serial.print(acc_y_cal);
   Serial.print(" ");
   Serial.println(acc_z_cal);
-  delay(4000);
+  delay(3000);
 
 
   /////////////////////////////////////////////////////////////// COMPASS CONFIG
 
   Serial.println("COMPASS CAL BEGINS...");
-  delay(2000);
+  delay(1000);
   Serial.println("LESSGOOO...");
 /*
 for (int cal_int = 0; cal_int < 7000 ; cal_int ++)
@@ -187,13 +179,13 @@ for(int i = 0; i < 6; i++)
   Serial.print(comp_cal_vals[i]);
   Serial.print(",");
 }
-delay(2000);
+delay(1000);
   Serial.println("__");
 
 compscl_y = ((float)comp_cal_vals[1] - comp_cal_vals[0]) / (comp_cal_vals[3] - comp_cal_vals[2]);
 compscl_z = ((float)comp_cal_vals[1] - comp_cal_vals[0]) / (comp_cal_vals[5] - comp_cal_vals[4]);
 
-compoff_x = (comp_cal_vals[1] - comp_cal_vals[0]) / 2 - comp_cal_vals[1];
+compoff_x = ((float)comp_cal_vals[1] - comp_cal_vals[0]) / 2 - comp_cal_vals[1];
 compoff_y = (((float)comp_cal_vals[3] - comp_cal_vals[2]) / 2 - comp_cal_vals[3]) * compscl_y;
 compoff_z = (((float)comp_cal_vals[5] - comp_cal_vals[4]) / 2 - comp_cal_vals[5]) * compscl_z;
 
@@ -203,14 +195,14 @@ Serial.println("COMP SCALE: Y, Z ~ COMP OFFSETS: X, Y, Z");
 Serial.print(compscl_y);
 Serial.print(" ");
 Serial.print(compscl_z);
-Serial.print(" ");
+Serial.print("  ");
 Serial.print(compoff_x);
-Serial.print("   ");
+Serial.print(" ");
 Serial.print(compoff_y);
 Serial.print(" ");
 Serial.println(compoff_z);
 
-delay(15000);
+delay(5000);
 
 
 
@@ -284,8 +276,14 @@ void read_mpu_6050_data()
   gyro_roll = (int16_t)(Wire.read()<<8|Wire.read());                                 //Add the low and high byte to the gyro_x variable
   gyro_pitch = (int16_t)(Wire.read()<<8|Wire.read());                                 //Add the low and high byte to the gyro_y variable
   gyro_yaw = (int16_t)(Wire.read()<<8|Wire.read());                                 //Add the low and high byte to the gyro_z variable
+  
+  gyro_yaw   *= 1.3235;
+  gyro_pitch *= 1.3235;
+  gyro_roll  *= 1.3235;
+
+
   gyro_pitch *= -1;                                            //Invert the direction of the axis.
-  gyro_yaw *= -1;  
+  gyro_yaw   *= -1;  
 }
 
 void aux_work()
@@ -296,21 +294,30 @@ void aux_work()
   roll  = angle_roll;
   yaw   = angle_yaw;
 
-float declinationAngle = (0.0 + (0.0 / 60.0)) / (180 / PI);
-  compass.setDeclinationAngle(declinationAngle);
+/*
   sVector_t mag = compass.readRaw();
-  compass.getHeadingDegrees();
   comp_x = mag.XAxis*-1;
   comp_y = mag.YAxis*-1;
   comp_z = mag.ZAxis;
+*/
+  compass.read();
+  comp_x = compass.getX();
+  comp_y = compass.getY();
+  comp_z = compass.getZ();
+  
 
+  comp_x *= -1;
+  comp_y *= -1;
+
+
+     
     comp_y += compoff_y;                              //Add the y-offset to the raw value.
     comp_y *= compscl_y;                               //Scale the y-value so it matches the other axis.
     comp_z += compoff_z;                              //Add the z-offset to the raw value.
     comp_z *= compscl_z;                               //Scale the z-value so it matches the other axis.
     comp_x += compoff_x;     
 
-  compass_x_horizontal = (float)comp_x * cos(angle_pitch * -0.0174533) + (float)comp_y * sin(angle_roll * -0.0174533) * sin(angle_pitch * -0.0174533) - (float)comp_z * cos(angle_roll * -0.0174533) * sin(angle_pitch * -0.0174533);
+  compass_x_horizontal = (float)comp_x * cos(angle_pitch * 0.0174533) + (float)comp_y * sin(angle_roll * -0.0174533) * sin(angle_pitch * 0.0174533) - (float)comp_z * cos(angle_roll * -0.0174533) * sin(angle_pitch * 0.0174533);
   compass_y_horizontal = (float)comp_y * cos(angle_roll * -0.0174533) + (float)comp_z * sin(angle_roll * -0.0174533);
 
   //Now that the horizontal values are known the heading can be calculated. With the following lines of code the heading is calculated in degrees.
@@ -366,7 +373,15 @@ void setup_mpu_6050_registers(){
   Wire.beginTransmission(0x68);                                        //Start communicating with the MPU-6050
   Wire.write(0x1B);                                                    //Send the requested starting register
   Wire.write(0x08);                                                    //Set the requested starting register
-  Wire.endTransmission();                                              //End the transmission
+  Wire.endTransmission();
+  Wire.beginTransmission(0x68);                                        //Start communicating with the MPU-6050
+  Wire.write(0x1A);                                                    //Send the requested starting register
+  Wire.write(0x03);                                                    //Set the requested starting register
+  Wire.endTransmission();
+  
+  
+  
+                                                //End the transmission
 }
 
 
