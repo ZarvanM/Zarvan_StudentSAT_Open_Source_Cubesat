@@ -205,16 +205,16 @@ void aux_work()
 {   
 
   //Serial.println(".");
-  pitch = angle_pitch_output;
-  roll  = angle_roll_output;
+  pitch = angle_pitch;
+  roll  = angle_roll;
   
   Serial.print(90);
   Serial.print(",");
   Serial.print(-90);   
   Serial.print(",");                                           
-  Serial.print(angle_pitch_output,0);
+  Serial.print(pitch);
   Serial.print(",");
-  Serial.print(angle_roll_output,0);
+  Serial.print(roll);
   Serial.print(",");
   Serial.print(totalaccel,2);
   Serial.print(",");
@@ -245,7 +245,6 @@ void setup_mpu_6050_registers(){
   Wire.write(0x08);                                                    //Set the requested starting register
   Wire.endTransmission();                                              //End the transmission
 }
-
 
 
 
