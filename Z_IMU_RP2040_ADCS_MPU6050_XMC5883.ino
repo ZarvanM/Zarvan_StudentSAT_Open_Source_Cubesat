@@ -85,33 +85,33 @@ void setup()
   delay(500);
 
   
-  for (int cal_int = 0; cal_int < 1500 ; cal_int ++)
+  for (int cal_int = 0; cal_int < 5500 ; cal_int ++)
   {                 
 
     read_mpu_6050_data();                                              
     gyro_x_cal += gyro_x;                                              
     gyro_y_cal += gyro_y;                                              
     gyro_z_cal += gyro_z;                                             
-    delay(3);                                                          
+    delayMicroseconds(3600);                                                          
   }
-  gyro_x_cal /= 1500;                                                  
-  gyro_y_cal /= 1500;                                                  
-  gyro_z_cal /= 1500;                                                 
+  gyro_x_cal /= 5500;                                                  
+  gyro_y_cal /= 5500;                                                  
+  gyro_z_cal /= 5500;                                                 
 
 
 
-for (int cal_int = 0; cal_int < 1500 ; cal_int ++)
+for (int cal_int = 0; cal_int < 500 ; cal_int ++)
   {                 
 
     read_mpu_6050_data();                                              
     acc_x_cal += acc_x;                                              
     acc_y_cal += acc_y;                                              
    // acc_z_cal += acc_z;   UNCOMMENT only and ONLY if you are actually in space. DO NOT UNCOMMENT ON EARTH. BAD THINGS HAPPEN!                                          
-    delay(3);                                                          
+    delayMicroseconds(3600);                                                          
   }
-  acc_x_cal /= 1500;                                                  
-  acc_y_cal /= 1500;                                                  
-  acc_z_cal /= 1500;   
+  acc_x_cal /= 500;                                                  
+  acc_y_cal /= 500;                                                  
+  acc_z_cal /= 500;   
 
   Serial.println("GYRO CAL RESULTS: X, Y, Z");
   Serial.print(gyro_x_cal);
