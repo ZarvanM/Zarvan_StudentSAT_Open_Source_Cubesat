@@ -1,0 +1,13 @@
+V0.0.1-Alpha (pre-released)
+*******************************
+Vin = 5.0V (USB)
+Iin = <50mA
+**Sensor List******************
+MPU6050 (Gyro/Accel)
+QMC5883 (Magnetometer)
+
+TODO FOR NEXT VERSION:
+1. Switch to a better gyro (ISM6x or ISM9x)
+2. Ability to turnoff gyro
+3. Maybe, just maybeee add 2nd gyro
+4. BDOT impl.
