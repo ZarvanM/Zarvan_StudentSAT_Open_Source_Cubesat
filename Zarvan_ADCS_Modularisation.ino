@@ -36,8 +36,11 @@ Special thanks to Joop Brokking (for IMU CF methodology), Earle F. Philhower III
 
 #include <Wire.h>
 #include <QMC5883LCompass.h>
+#include "RTClib.h"
+
 
 QMC5883LCompass compass;
+RTC_DS1307 rtc;
 
 float gyro_roll, gyro_pitch, gyro_yaw;
 int raw_gyro_roll, raw_gyro_pitch, raw_gyro_yaw;
@@ -78,16 +81,26 @@ int loopfreq  = 250; //GYRO/ACCEL primary loop loopfreq. DO NOT CHANGE unless ce
 
 void setup() 
 {
-  Wire.begin();  
-  Serial.begin(115200);  
+    Serial.begin(115200);  
     while (!Serial)
     {
     delay(1); // Avoids WEIRD serial garbage and bugginess. Remove SERIAL usage once done debugging. No one has USB in space...
     }
+  
+  
+  Wire.begin();
+  rtc.begin();
+ 
+  
+
+  compass.init();
+  setup_mpu_6050_registers();  
+
+
 
   opfreq = rp2040.f_cpu()/1000000;
   
-  setup_mpu_6050_registers();  
+
 
   Serial.println("*ZAR-ADCS-MPSTME-ASLS        *");
   Serial.println("* FOR EVALUATION AND TESTING *");                                                    
@@ -96,25 +109,25 @@ void setup()
   Serial.println("RP2040 operating at: ");
   Serial.println(opfreq);
   
-  compass.init();
+
 
 
 
 /////////////////////////////////////////////////////////////// GYRO CALIB
 
   
-  for (int cal_int = 0; cal_int < 4500 ; cal_int ++)
+  for (int cal_int = 0; cal_int < 3500 ; cal_int ++)
   {                 
 
     read_mpu_6050_data();                                              
       gyro_roll_cal += gyro_roll;                                                     //Ad roll value to gyro_roll_cal.
       gyro_pitch_cal += gyro_pitch;                                                   //Ad pitch value to gyro_pitch_cal.
       gyro_yaw_cal += gyro_yaw;                                             
-    delayMicroseconds(3650);                                                          
+    delayMicroseconds(3550);                                                          
   }
-  gyro_roll_cal /= 4500;                                                  
-  gyro_pitch_cal /= 4500;                                                  
-  gyro_yaw_cal /= 4500;                                                 
+  gyro_roll_cal /= 3500;                                                  
+  gyro_pitch_cal /= 3500;                                                  
+  gyro_yaw_cal /= 3500;                                                 
   
   Serial.println("GYRO");
 
@@ -205,10 +218,10 @@ Serial.println(compoff_z);
 delay(1000);
 
 /////////////////////////////////////////////////////////////// WATCHDOG CONFIG
-
   rp2040.wdt_begin(wooftimer);
   loop_timer = micros();                                               //Reset the loop timer
 }
+
 
 
 void loop()
@@ -253,7 +266,19 @@ acc_z *= 1.0242;
    
   
   temperature = ((temperature+521)/340) + 35;
+  
+  pitch = angle_pitch;
+  roll  = angle_roll;
+  yaw   = angle_yaw;
 
+  comp_x *= -1;
+  comp_y *= -1;
+
+    comp_y += compoff_y;                             
+    comp_y *= compscl_y;                              
+    comp_z += compoff_z;                              
+    comp_z *= compscl_z;                               
+    comp_x += compoff_x;    
 
   while(micros() - loop_timer < 4000)
   {
@@ -264,10 +289,6 @@ acc_z *= 1.0242;
   loop_timer = micros(); 
                                                
 }
-
-
-
-
 
 
 
@@ -298,10 +319,10 @@ void read_mag_xmc1_data()
 
 void read_mpu_6050_data()
 {                                             
-  Wire.beginTransmission(0x68);                                        //Start communicating with the MPU-6050
+  Wire.beginTransmission(0x69);                                        //Start communicating with the MPU-6050
   Wire.write(0x3B);                                                    //Send the requested starting register
   Wire.endTransmission();                                              //End the transmission
-  Wire.requestFrom(0x68,14);                                           //Request 14 bytes from the MPU-6050
+  Wire.requestFrom(0x69,14);                                           //Request 14 bytes from the MPU-6050
   while(Wire.available() < 14);                                        //Wait until all the bytes are received
   acc_y = (int16_t)(Wire.read()<<8|Wire.read());                                  //Add the low and high byte to the acc_x variable
   acc_x = (int16_t)(Wire.read()<<8|Wire.read());                                  //Add the low and high byte to the acc_y variable
@@ -328,40 +349,27 @@ void read_mpu_6050_data()
 
 void aux_work()
 {   
-
-  pitch = angle_pitch;
-  roll  = angle_roll;
-  yaw   = angle_yaw;
-
-  comp_x *= -1;
-  comp_y *= -1;
-
-
-    comp_y += compoff_y;                              //Add the y-offset to the raw value.
-    comp_y *= compscl_y;                               //Scale the y-value so it matches the other axis.
-    comp_z += compoff_z;                              //Add the z-offset to the raw value.
-    comp_z *= compscl_z;                               //Scale the z-value so it matches the other axis.
-    comp_x += compoff_x;     
+ 
 
 
 if(loop_ctr1 == 25)
 {
+  DateTime now = rtc.now();
+
   Serial.print(pitch);
   Serial.print(","); 
   Serial.print(roll);
   Serial.print(","); 
   Serial.print(yaw);
-  Serial.print("**"); 
+  Serial.print(" ** "); 
   Serial.print(comp_x,0);
   Serial.print(",");
   Serial.print(comp_y,0);
   Serial.print(",");
   Serial.print(comp_z,0);
-  Serial.print("**"); 
+  Serial.print(" ** "); 
   Serial.print(loop_count); 
   Serial.println("**");
-
-  
   loop_ctr1 = 0;
 }
 /*
@@ -378,26 +386,24 @@ if(loop_ctr1 == 25)
   Serial.println(comp_z,0);
 
 */
-
-
 }
 
 
 
 void setup_mpu_6050_registers(){
-  Wire.beginTransmission(0x68);                                        //Start communicating with the MPU-6050
+  Wire.beginTransmission(0x69);                                        //Start communicating with the MPU-6050
   Wire.write(0x6B);                                                    //Send the requested starting register
   Wire.write(0x00);                                                    //Set the requested starting register
   Wire.endTransmission();                                              //End the transmission
-  Wire.beginTransmission(0x68);                                        //Start communicating with the MPU-6050
+  Wire.beginTransmission(0x69);                                        //Start communicating with the MPU-6050
   Wire.write(0x1C);                                                    //Send the requested starting register
   Wire.write(0x00);                                                    //Set the requested starting register
   Wire.endTransmission();                                              //End the transmission
-  Wire.beginTransmission(0x68);                                        //Start communicating with the MPU-6050
+  Wire.beginTransmission(0x69);                                        //Start communicating with the MPU-6050
   Wire.write(0x1B);                                                    //Send the requested starting register
   Wire.write(0x08);                                                    //Set the requested starting register
   Wire.endTransmission();
-  Wire.beginTransmission(0x68);                                        //Start communicating with the MPU-6050
+  Wire.beginTransmission(0x69);                                        //Start communicating with the MPU-6050
   Wire.write(0x1A);                                                    //Send the requested starting register
   Wire.write(0x03);                                                    //Set the requested starting register
   Wire.endTransmission();
