@@ -1,7 +1,8 @@
 # Z-Tek_Cubesat_ADCS
 AD ASTRA PER ASPERA
 -
-Cubesat ADCS code written by Zarvan Movdawalla and Team, from MPSTME Mumbai.
+Cubesat ADCS code written by Zarvan Movdawalla and Team, from MPSTME India.
+Striving to develop a 3u+ Cubesat, with a rudimentary ADCS, and fail-tolerant architecture.
 -
 Primary Processor: RP2040, on Raspberry Pi Pico
 
