@@ -1,9 +1,8 @@
 # Z-Tek_Cubesat_ADCS
-Ad astra, per aspera.
-
-
+AD ASTRA PER ASPERA
+-
 Cubesat ADCS code written by Zarvan Movdawalla and Team, from MPSTME Mumbai.
-
+-
 Primary Processor: RP2040, on Raspberry Pi Pico
 
 Sensors:
