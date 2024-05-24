@@ -30,10 +30,14 @@ Special thanks to Joop Brokking (for IMU CF methodology), Earle F. Philhower III
 
 
 MISSION FORMAT (ZarSAT V1)
-[TYPE] [DURATION] [DATA1] [DATA2] [DATA3] 
-[ 1  ] [   15   ] [  0  ] [  0  ] [  0  ]
+[TYPE] [DURATION] [DATA1] [DATA2] [DATA3] [DATA4] [DATA5] 
+[ 1  ] [   0    ] [  0  ] [  0  ] [  0  ] [  0  ] [  0  ]     //disable adcs
+[ 2  ] [   0    ] [  0  ] [  0  ] [  0  ] [  0  ] [  0  ]     //passive stab adcs
 
-
+STATUS TRUTH TABLE:
+-1 = INVALID
+ 0 = PHOENIX MODE
+ 1 = SAFE
 
 
 
@@ -42,33 +46,25 @@ MISSION FORMAT (ZarSAT V1)
 
 #include <Wire.h>
 #include "RTClib.h"
+#include "SparkFun_External_EEPROM.h" // Click here to get the library: http://librarymanager/All#SparkFun_External_EEPROM
+ExternalEEPROM eeprom;
 RTC_DS3231 rtc;
 
-int16_t missionplan1[7][5] = 
+
+int16_t missionplan1[7][7] = 
 { 
-  {1, 232, 3, 4, 5},  //1
-  {2, 214, 3, 4, 5213},  //2
-  {3, 2112, 3132, 4, 5}, //3
-  {4, 24121, 3, 4, 5}, //4
-  {5, 2412, 3, 4, 5}, //5
-  {6, 22, 3, 4, 5}, //6
-  {7, 21, 3, 4123, 5}  //7
+  {1, 0, 0, 0, 1, 2, 3},  //1
+  {2, 0, 0, 0, 1, 2, 3},  //2
+  {3, 0, 0, 0, 1, 2, 3}, //3
+  {4, 0, 0, 0, 1, 2, 3}, //4
+  {5, 0, 0, 0, 1, 2, 3}, //5
+  {6, 0, 0, 0, 1, 2, 3}, //6
+  {7, 0, 0, 0, 1, 2, 3}  //7
 
 };
 
-int16_t missionplan2[7][5] = 
-{ 
-  {1, 2, 3, 4, 5},  //1
-  {1, 2, 3, 4, 5},  //2
-  {1, 2, 3, 4, 5}, //3
-  {1, 2, 3, 4, 5}, //4
-  {1, 2, 3, 4, 5}, //5
-  {1, 2, 3, 4, 5}, //6
-  {1, 2, 3, 4, 5}  //7
 
-};
-
-int16_t dataToSend[] = {0, 0, 0, 0, 0}; 
+int16_t dataToSend[] = {0,0,0,0,0,0,0}; 
 const int dataLength = sizeof(dataToSend) / sizeof(dataToSend[0]);
 
 int pointofmission = 0;
@@ -76,7 +72,7 @@ int opfreq = 0;
 int adcscommand =  14;
 int adcsfinish =  15;
 int loop_timer  =   0;
-int wooftimer   = 500; //watchdog
+int wooftimer   = 1500; //watchdog
 int done        = 0  ;
 int adcsfinishState = 0;
 int lastadcsfinishState=0;
@@ -100,44 +96,53 @@ void setup()
     }
   for (int row = 0; row < 7; row++) 
 {
-    for (int col = 0; col < 5; col++) {
+    for (int col = 0; col < 7; col++) {
       Serial.print(missionplan1[row][col]);
       Serial.print(" ");  // Print a space between elements
     }
     Serial.println();  // Move to the next line after each row
   }
-
-  Wire.setSDA(4);
-  Wire.setSCL(5);
-  Wire.begin();
   
-  Wire1.setSDA(6);
-  Wire1.setSCL(7);
-  Wire1.begin();
+  eeprom.setMemoryType(32);
 
+  begini2c();
+
+
+  #define EEPROM_ADDRESS 0b1010111
+
+  
+  eeprom.begin(EEPROM_ADDRESS, Wire);
+  
+  Serial.println("Memory detected!");
   rtc.begin();
-
-  
   pinMode (0, OUTPUT);
   digitalWrite(0,HIGH);
   pinMode (25, OUTPUT);
   pinMode (adcscommand, OUTPUT);
   pinMode (adcsfinish, INPUT_PULLDOWN);
 
+//EEPROM OPS (32Byte)
+  int16_t membankID = 1;
+  int16_t status = -1;
+  int16_t read1, read2 = 0;
+  //eeprom.put(0, variable1); //(location, data)
+  //eeprom.put(10, variable2); //(location, data)
+
+  eeprom.get(0, read1); //(location, data)
+  eeprom.get(10, read2); //(location, data)
+
+
+  Serial.print(read1);
+  Serial.print("~");
+  Serial.println(read2);
+
+delay(10000);
 
 
 
-  Serial.println("*  PRIMARY COMPUTER BOOTING  *");
-  Serial.println("* FOR EVALUATION AND TESTING *");                                                    
-  Serial.println("*  i2cWIRE 1 TIED TO ADCS    *");
-  opfreq = rp2040.f_cpu()/1000000;
-  Serial.println("RP2040 operating at: ");
-  Serial.println(opfreq);
-  
-  
+
   rp2040.wdt_begin(wooftimer);
   loop_timer = millis();     
-
 }
 
 
@@ -145,8 +150,10 @@ void setup()
 
 void loop()
 {
+
   checkadcsstatus();  
   prepforADCS();
+  sendtoADCS(dataToSend, 7);
 
 
 
@@ -166,6 +173,18 @@ void loop()
 
 
 
+
+
+
+void begini2c()
+{
+ Wire.setSDA(4);
+ Wire.setSCL(5);
+  Wire.begin(); //for sensors
+ Wire1.setSDA(6);
+ Wire1.setSCL(7);
+  Wire1.begin(); //for adcs<->prim
+}
 
 
 void checkadcsstatus()
@@ -192,7 +211,7 @@ adcsfinishState = digitalRead(adcsfinish);
 
 void mission1done()
 {
-
+  delay(20000);
 }
 void aux_work()
 {
@@ -201,52 +220,48 @@ void aux_work()
 
 void prepforADCS()
 {
+      DateTime now = rtc.now();
 
+for(int i = 0; i < 7 ; i++)
+{
+  dataToSend[i] = missionplan1[pointofmission][i];
 
-type = 0;
-duration = 0;
-data1 = 0;
-data2 = 0;
-data3 = 0;
-
-type     = missionplan1[pointofmission][0];
-duration = missionplan1[pointofmission][1];
-data1    = missionplan1[pointofmission][2];
-data2    = missionplan1[pointofmission][3];
-data3    = missionplan1[pointofmission][4];
+}
 
 
 
-dataToSend[0] = type;
-dataToSend[1] = duration;
-dataToSend[2] = data1;
-dataToSend[3] = data2;
-dataToSend[4] = data3;
-  for (int i = 0; i < 5; i++) 
+  Serial.print(":");
+  Serial.print(pointofmission);
+  Serial.print(" ");
+  Serial.print(now.hour(), DEC);
+  Serial.print(':');
+  Serial.print(now.minute(), DEC);
+  Serial.print(':');
+  Serial.print(now.second(), DEC);
+  Serial.println();
+}
+
+
+
+
+void sendtoADCS(int16_t *array, int length) 
+{
+    Wire1.beginTransmission(9);
+    for (int i = 0; i < length; i++) {
+        Wire1.write((uint8_t)(array[i] >> 8)); // Send the high byte
+        Wire1.write((uint8_t)(array[i] & 0xFF));  // Send the low byte
+    }
+    Wire1.endTransmission();
+  
+  for (int i = 0; i < 7; i++) 
   {
     Serial.print(dataToSend[i]);
-    Serial.print("..");
+    Serial.print(",");
   }
+  
   Serial.println(" ");
 
 }
-
-void sendtoADCS()
-{
-  Wire1.beginTransmission(9);
-  Wire1.write(dataLength);
-  for (int i = 0; i < dataLength; i++) 
-  {
-    Wire1.write((byte)(dataToSend[i] >> 8)); // Send the high byte
-    Wire1.write((byte)(dataToSend[i] & 0xFF)); // Send the low byte
-  }
-
-  Wire1.endTransmission();
-}
-
-
-
-
 
 
 
