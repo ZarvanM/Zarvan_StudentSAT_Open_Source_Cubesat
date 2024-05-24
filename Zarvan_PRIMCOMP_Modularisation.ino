@@ -32,7 +32,7 @@ Special thanks to Joop Brokking (for IMU CF methodology), Earle F. Philhower III
 MISSION FORMAT (ZarSAT V1)
 [TYPE] [DURATION] [DATA1] [DATA2] [DATA3] [DATA4] [DATA5] 
 [ 1  ] [   0    ] [  0  ] [  0  ] [  0  ] [  0  ] [  0  ]     //disable adcs
-[ 2  ] [   0    ] [  0  ] [  0  ] [  0  ] [  0  ] [  0  ]     //passive stab adcs
+[ 1  ] [   0    ] [  0  ] [  0  ] [  0  ] [  0  ] [  0  ]     //disable adcs
 
 STATUS TRUTH TABLE:
 -1 = INVALID
@@ -114,7 +114,7 @@ void setup()
   eeprom.begin(EEPROM_ADDRESS, Wire);
   
   Serial.println("Memory detected!");
-  rtc.begin();
+  rtc.begin(&Wire);
   pinMode (0, OUTPUT);
   digitalWrite(0,HIGH);
   pinMode (25, OUTPUT);
