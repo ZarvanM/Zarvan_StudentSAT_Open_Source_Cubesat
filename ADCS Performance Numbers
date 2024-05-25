@@ -11,3 +11,17 @@ TODO FOR NEXT VERSION:
 2. Ability to turnoff gyro
 3. Maybe, just maybeee add 2nd gyro
 4. BDOT impl.
+
+
+V0.0.1-Alpha PRIMCOMP (pre-released)
+*******************************
+Vin = 5.0V (USB)
+Iin = <50mA
+**Sensor List******************
+AT24 EEPROM
+DS3231  RTC
+
+TODO FOR NEXT VERSION:
+1. Implement mission framework
+2. Recheck i2c stability and fault tolerance
+3. Add non blocking i2c via parallel data lines
