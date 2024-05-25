@@ -29,16 +29,33 @@ SOFTWARE.
 Special thanks to Joop Brokking (for IMU CF methodology), Earle F. Philhower III (for RP2040 Arduino Core). This ADCS is based off of their pioneering work.
 
 
-MISSION FORMAT (ZarSAT V1)
+MISSION FORMAT (ZarSAT V1) **massively WIP**
 [TYPE] [DURATION] [DATA1] [DATA2] [DATA3] [DATA4] [DATA5] 
-[ 1  ] [   0    ] [  0  ] [  0  ] [  0  ] [  0  ] [  0  ]     //disable adcs
-[ 1  ] [   0    ] [  0  ] [  0  ] [  0  ] [  0  ] [  0  ]     //disable adcs
+[ 0  ] [   0    ] [  0  ] [  0  ] [  0  ] [  0  ] [  0  ]     //shutdown adcs
+[ 1  ] [   0    ] [  0  ] [  0  ] [  0  ] [  0  ] [  0  ]     //disable  adcs
+[ 2  ] [ seconds] [  0  ] [  0  ] [  0  ] [  0  ] [  0  ]     //adcs magneto-observer mode ON (return X,Y,Z and BDOT values)
+[ 3  ] [   0    ] [move1] [move2] [move3] [move4] [move5]     //raw reaction wheel driver (P, Y, R), MOTIONS WILL BE CLEARLY ONE AFTER ANOTHER, NOT PARALLEL. NO OFFSET >90 Degrees
+[ 4  ] [seconds ] [XAXIS] [YAXIS] [ZAXIS] [  0  ] [  0  ]     //raw magnetorquer driving (x,y,z) MAGNITUDE BASED
 
-STATUS TRUTH TABLE:
+STATUS TABLE:
 -1 = INVALID
  0 = PHOENIX MODE
  1 = SAFE
+ 2 = MISSION MODE
 
+MISSION COMPLETION STATUS:
+ 0 = INCOMPLETE
+ 1 = COMPLETED
+
+ONBOARD HEALTH STATUS:
+OHS_ADCS:
+0 = NO FAULT
+1 = IMU FAIL
+2 = TOTAL ADCS FAILURE
+
+OHS_EPS:
+0 = NO FAULT
+1 = TOTAL EPS FAILURE
 
 
 *///////////////////////////////////////////////
@@ -55,11 +72,11 @@ int16_t missionplan1[7][7] =
 { 
   {1, 0, 0, 0, 1, 2, 3},  //1
   {2, 0, 0, 0, 1, 2, 3},  //2
-  {3, 0, 0, 0, 1, 2, 3}, //3
-  {4, 0, 0, 0, 1, 2, 3}, //4
-  {5, 0, 0, 0, 1, 2, 3}, //5
-  {6, 0, 0, 0, 1, 2, 3}, //6
-  {7, 0, 0, 0, 1, 2, 3}  //7
+  {3, 0, 0, 0, 1, 2, 3},  //3
+  {4, 0, 0, 0, 1, 2, 3},  //4
+  {5, 0, 0, 0, 1, 2, 3},  //5
+  {6, 0, 0, 0, 1, 2, 3},  //6
+  {7, 0, 0, 0, 1, 2, 3}   //7
 
 };
 
@@ -76,7 +93,7 @@ int wooftimer   = 1500; //watchdog
 int done        = 0  ;
 int adcsfinishState = 0;
 int lastadcsfinishState=0;
-int mission1length = 6;
+
 
 int16_t type = 0;
 int16_t duration = 0;
@@ -90,10 +107,11 @@ int16_t data3 = 0;
 void setup() 
 {
     Serial.begin(115200);  
-    while (!Serial)
+    /* while (!Serial)
     {
     delay(1); // Avoids WEIRD serial garbage and bugginess. Remove SERIAL usage once done debugging. No one has USB in space...
     }
+    */
   for (int row = 0; row < 7; row++) 
 {
     for (int col = 0; col < 7; col++) {
@@ -104,17 +122,12 @@ void setup()
   }
   
   eeprom.setMemoryType(32);
-
   begini2c();
-
-
-  #define EEPROM_ADDRESS 0b1010111
-
-  
-  eeprom.begin(EEPROM_ADDRESS, Wire);
-  
+  eeprom.begin(0b1010111, Wire);
   Serial.println("Memory detected!");
   rtc.begin(&Wire);
+  
+  //PIN DECLARATION
   pinMode (0, OUTPUT);
   digitalWrite(0,HIGH);
   pinMode (25, OUTPUT);
@@ -122,21 +135,26 @@ void setup()
   pinMode (adcsfinish, INPUT_PULLDOWN);
 
 //EEPROM OPS (32Byte)
+
+//EEPROM writing (PRE-LAUNCH)
   int16_t membankID = 1;
   int16_t status = -1;
-  int16_t read1, read2 = 0;
-  //eeprom.put(0, variable1); //(location, data)
-  //eeprom.put(10, variable2); //(location, data)
-
-  eeprom.get(0, read1); //(location, data)
-  eeprom.get(10, read2); //(location, data)
+  
 
 
-  Serial.print(read1);
-  Serial.print("~");
-  Serial.println(read2);
 
-delay(10000);
+
+
+
+
+
+
+  eeprom.put(0,  0);  //PHOENIX (MODE)
+  eeprom.put(10, 1);  //COMPLETION STATUS
+
+ // eeprom.get(0, read1); //(location, data)
+ // eeprom.get(10, read2); //(location, data)
+
 
 
 
@@ -191,7 +209,7 @@ void checkadcsstatus()
 {
 adcsfinishState = digitalRead(adcsfinish);
 
-  if (adcsfinishState == HIGH && lastadcsfinishState == LOW && pointofmission < mission1length) 
+  if (adcsfinishState == HIGH && lastadcsfinishState == LOW && pointofmission < 7) 
   {
      pointofmission++;
      Serial.print(" ADCS SAYS FINISHED, POM = ");
@@ -199,7 +217,7 @@ adcsfinishState = digitalRead(adcsfinish);
   }
     lastadcsfinishState = adcsfinishState;
   
-  if (pointofmission == mission1length)
+  if (pointofmission == 7)
   {
          Serial.println("DONE!");
          mission1done();
@@ -225,11 +243,7 @@ void prepforADCS()
 for(int i = 0; i < 7 ; i++)
 {
   dataToSend[i] = missionplan1[pointofmission][i];
-
 }
-
-
-
   Serial.print(":");
   Serial.print(pointofmission);
   Serial.print(" ");
@@ -240,6 +254,8 @@ for(int i = 0; i < 7 ; i++)
   Serial.print(now.second(), DEC);
   Serial.println();
 }
+
+
 
 
 
