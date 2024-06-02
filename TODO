@@ -25,3 +25,17 @@ TODO FOR NEXT VERSION:
 1. Implement mission framework
 2. Recheck i2c stability and fault tolerance
 3. Add non blocking i2c via parallel data lines
+
+
+V0.0.1-Alpha EPS (pre-released)
+*******************************
+Vin = 5.0V (USB)
+Iin = <10mA
+**Sensor List******************
+Shunt current resistor
+ULN2003 for switching lanes
+
+TODO FOR NEXT VERSION:
+1. Implement EPS framework
+2. Implement ATMega328 current sensors
+3. Code said sensors ^
