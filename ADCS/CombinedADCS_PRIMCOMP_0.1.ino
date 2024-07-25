@@ -124,11 +124,11 @@ void startup()
 void printMP1()
 {
   for (int i = 0; i < 20; i++) {
+    String row = "";
     for (int j = 0; j < 10; j++) {
-      Serial.print(MP1[i][j]);
-      Serial.print(" "); // Add a tab for better formatting
+      row += String(MP1[i][j]) + " ";
     }
-    Serial.println(); // Move to the next line after printing a row
+    Serial.println(row); 
   }
 }
 
