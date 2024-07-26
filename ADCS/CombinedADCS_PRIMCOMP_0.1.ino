@@ -90,6 +90,11 @@ int16_t MP1[20][10] =
 **
 7. GYROMOTION(AXIS,DEG)
 **
+8. PHOENIX MODE
+9. SAFE    MODE
+10.NORMAL  MODE
+11.OVRD    MODE
+
 
 //[TYPE] [DURATION] [PARAM1] [PARAM2] [PARAM3] 
 */
@@ -303,8 +308,20 @@ switch (type)
     break;
   case 7:
   GYROMOTION(axis, duration, degree);
-
     break;
+  case 8:
+//PHOENIX
+    break;
+  case 9:
+//SAFE
+    break;
+  case 10:
+//NORMAL
+    break;
+  case 11:
+//OVRD
+    break;
+
   default:
     break;
 }
