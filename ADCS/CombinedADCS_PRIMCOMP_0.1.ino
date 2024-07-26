@@ -29,6 +29,19 @@ SOFTWARE.
 Special thanks to Joop Brokking (for IMU CF methodology), Earle F. Philhower III (for RP2040 Arduino Core). This ADCS is based off of their pioneering work.
 
 
+HARDWARE:
+RP2040 (aboard Waveshare RP2040-Zero)
+DS3231 (RTC) - Wire0 - 0x68
+MPU6050(IMU) - Wire0 - 0x69
+EXTERNAL I2C - Wire1 -
+
+OSTAB RPI2W  - Wire1 - Roll/Pitch/Misc. Data Channels
+
+
+
+
+
+
 TODO:
 1. Find elapsed time!! (using RTCLib, maybe UNIX time with arduino time library???)
 2. Alarms and stuff (SQW Pin?)
@@ -58,24 +71,41 @@ float acc_x, acc_y, acc_z, acc_total_vector;
 int temperature;
 float gyro_roll_cal, gyro_pitch_cal, gyro_yaw_cal;
 float acc_x_cal, acc_y_cal, acc_z_cal;
+int axis, degree = 0;
+int POM, type, duration, param1,param2,param3,param4,param5 = 0;
 
 
 int16_t MP1[20][10] = 
 { 
-  {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},  //1
-  {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},
-  {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},
-  {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},
-  {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},
-  {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},
-  {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},
-  {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},
-  {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},
-  {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},
-  {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},
-  {1, 0, 0, 0, 1, 2, 3, 0, 0, 0} 
- 
 
+
+/* TYPES OF ACTIONS
+
+1. End Of Mission
+2. Disable   ADCS
+3. Self Test ADCS
+4. Calibrate ADCS
+5. Reset     ADCS
+6. Enable    ADCS
+**
+7. GYROMOTION(AXIS,DEG)
+**
+
+//[TYPE] [DURATION] [PARAM1] [PARAM2] [PARAM3] 
+*/
+
+  {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 };
 
 void setup()
@@ -93,17 +123,8 @@ void setup()
 
 void loop()
 {
-IMU1READ();
-DEBUG_IMU1();
-
-  while(micros() - loop_timer < 4000)
-  {
-    
-  }           
-  
-  rp2040.wdt_reset();                  
-  loop_timer = micros(); 
-                                               
+   MISSIONREAD();
+                                            
 }
 
 
@@ -234,4 +255,65 @@ void DEBUG_IMU1()
   Serial.print(gyro_yaw);
   Serial.println(";");  
 }
+
+void GYROMOTION(int axis, int duration, int degree)
+{
+IMU1READ();
+DEBUG_IMU1();
+
+
+
+
+  while(micros() - loop_timer < 4000)
+  {
+    
+  }           
+  
+  rp2040.wdt_reset();                  
+  loop_timer = micros(); 
+}
+
+void MISSIONREAD()
+{
+for(POM=0; POM<20; POM++)
+{
+  MISSIONEXEC(type,duration,param1,param2,param3);
+}
+}
+
+void MISSIONEXEC(int type, int duration,int param1,int param2,int param3)
+{
+
+switch (type) 
+{
+  case 2:
+  //DISABLE   ADCS
+    break;
+  case 3:
+  //SELFTEST  ADCS
+    break;
+  case 4:
+  //CALIBRATE ADCS
+    break;
+  case 5:
+  rp2040.reboot();
+    break;
+  case 6:
+  //ENABLE    ADCS
+    break;
+  case 7:
+  GYROMOTION(axis, duration, degree);
+
+    break;
+  default:
+    break;
+}
+
+}
+
+
+
+
+
+
 
