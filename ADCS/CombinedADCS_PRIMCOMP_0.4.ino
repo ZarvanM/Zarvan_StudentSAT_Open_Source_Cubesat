@@ -59,46 +59,20 @@ QMC5883LCompass compass;
 ExternalEEPROM eeprom;
 RTC_DS3231 rtc;
 
+uint32_t loopTimer = 0;
 
-uint32_t loop_timer = 0;
-
-
-int read1, read2 = 0;
-int wooftimer = 4000;
-float gyro_roll, gyro_pitch, gyro_yaw;
-int raw_gyro_roll, raw_gyro_pitch, raw_gyro_yaw;
-float acc_x, acc_y, acc_z, acc_total_vector;
+int eepromRead1 = 0, eepromRead2 = 0;
+int watchdogTimer = 4000;
+float gyroRoll, gyroPitch, gyroYaw;
+int rawGyroRoll, rawGyroPitch, rawGyroYaw;
+float accelX, accelY, accelZ;
 int temperature;
-float gyro_roll_cal, gyro_pitch_cal, gyro_yaw_cal;
-float acc_x_cal, acc_y_cal, acc_z_cal;
-int axis, degree = 0;
-int POM, type, duration, param1,param2,param3,param4,param5 = 0;
+float gyroRollCal, gyroPitchCal, gyroYawCal;
+float accelXCal, accelYCal, accelZCal;
+int actionAxis, actionDegree = 0;
+int pendingOperation, actionType, actionDuration, param1, param2, param3, param4, param5 = 0;
 
-
-int16_t MP1[20][10] = 
-
-
-
-/* TYPES OF ACTIONS
-
-1. End Of Mission
-2. Disable   ADCS
-3. Self Test ADCS
-4. Calibrate ADCS
-5. Reset     ADCS
-6. Enable    ADCS
-**
-7. GYROMOTION(AXIS,DEG)
-**
-8. PHOENIX MODE
-9. SAFE    MODE
-10.NORMAL  MODE
-11.OVRD    MODE
-
-
-//[TYPE] [DURATION] [PARAM1] [PARAM2] [PARAM3] 
-*/
-{
+int16_t missionPlan[20][10] = {
   {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -115,215 +89,193 @@ int16_t MP1[20][10] =
 
 void setup()
 {
-  rp2040.wdt_begin(wooftimer);
-   startup();
-   printMP1();
-   BeginCOMS();
-   EEPMEM();
-   RTIMER();
-   MPU1_Boot();
+  rp2040.wdt_begin(watchdogTimer);
+  startup();
+  printMissionPlan();
+  beginCommunications();
+  initializeEEPROM();
+  setupRTC();
+  initializeIMU();
   rp2040.wdt_reset(); 
-  loop_timer = micros(); 
+  loopTimer = micros(); 
 }
 
 void loop()
 {
-   MISSIONREAD();
-                                            
+  readMission();
 }
-
-
 
 void startup()
 {
   Serial.begin(9600);  
-    while (!Serial)
-    {
-    delay(1); // Avoids WEIRD serial garbage and bugginess. Remove SERIAL usage once done debugging. No one has USB in space...
-    }
+  while (!Serial)
+  {
+    delay(1);
+  }
   Serial.println("**ADCS+PRMCOMP**");  
-  Serial.println("**SERIAL INITT**");  
+  Serial.println("**SERIAL INIT**");  
   Serial.println(" RP2040: 133MHz ");  
-  Serial.println("WTCHDOG IS ALIVE");  
+  Serial.println("WATCHDOG IS ALIVE");  
 }
 
-void printMP1()
+void printMissionPlan()
 {
   for (int i = 0; i < 20; i++) {
     String row = "";
     for (int j = 0; j < 10; j++) {
-      row += String(MP1[i][j]) + " ";
+      row += String(missionPlan[i][j]) + " ";
     }
     Serial.println(row); 
   }
 }
 
-void BeginCOMS()
+void beginCommunications()
 {
- eeprom.setMemoryType(32);
- Wire.setSDA(4);
- Wire.setSCL(5);
- Wire.begin(); //for sensors
- Wire1.setSDA(6);
- Wire1.setSCL(7);
- Wire1.begin(); 
- eeprom.begin(0b1010111, Wire);
- rtc.begin(&Wire);
+  eeprom.setMemoryType(32);
+  Wire.setSDA(4);
+  Wire.setSCL(5);
+  Wire.begin();
+  Wire1.setSDA(6);
+  Wire1.setSCL(7);
+  Wire1.begin(); 
+  eeprom.begin(0b1010111, Wire);
+  rtc.begin(&Wire);
 }
 
-void EEPMEM()
+void initializeEEPROM()
 {
-eeprom.put(0,  -9999);  //PHOENIX (MODE)
-eeprom.put(10, 9999);  //COMPLETION STATUS
+  eeprom.put(0,  -9999);
+  eeprom.put(10, 9999);
 
-eeprom.get(0,  read1); //(location, data)
-eeprom.get(10, read2); //(location, data)
+  eeprom.get(0,  eepromRead1);
+  eeprom.get(10, eepromRead2);
 
-Serial.println(read1);
-Serial.println(read2);
+  Serial.println(eepromRead1);
+  Serial.println(eepromRead2);
 }
 
-void RTIMER()
+void setupRTC()
 {
-    DateTime now = rtc.now();
+  DateTime now = rtc.now();
 
-    Serial.print(now.day(), DEC);
-    Serial.print('/');
-    Serial.print(now.month(), DEC);
-    Serial.print('/');
-    Serial.print(now.year(), DEC);
-    Serial.print(" (");
-    Serial.print(now.hour(), DEC);
-    Serial.print(':');
-    Serial.print(now.minute(), DEC);
-    Serial.print(':');
-    Serial.print(now.second(), DEC);
-    Serial.println(")");
+  Serial.print(now.day(), DEC);
+  Serial.print('/');
+  Serial.print(now.month(), DEC);
+  Serial.print('/');
+  Serial.print(now.year(), DEC);
+  Serial.print(" (");
+  Serial.print(now.hour(), DEC);
+  Serial.print(':');
+  Serial.print(now.minute(), DEC);
+  Serial.print(':');
+  Serial.print(now.second(), DEC);
+  Serial.println(")");
 }
 
-
-void IMU1READ()
+void readIMU()
 {                                          
-  Wire.beginTransmission(0x69);                                        //Start communicating with the MPU-6050
-  Wire.write(0x3B);                                                    //Send the requested starting register
-  Wire.endTransmission();                                              //End the transmission
-  Wire.requestFrom(0x69,14);                                           //Request 14 bytes from the MPU-6050
-  while(Wire.available() < 14);                                        //Wait until all the bytes are received
-  acc_y = (int16_t)(Wire.read()<<8|Wire.read());                                  //Add the low and high byte to the acc_x variable
-  acc_x = (int16_t)(Wire.read()<<8|Wire.read());                                  //Add the low and high byte to the acc_y variable
-  acc_z = (int16_t)(Wire.read()<<8|Wire.read());                                  //Add the low and high byte to the acc_z variable
-  temperature = (int16_t)(Wire.read()<<8|Wire.read());                            //Add the low and high byte to the temperature variable
-  raw_gyro_roll = (int16_t)(Wire.read()<<8|Wire.read());                                 //Add the low and high byte to the gyro_x variable
-  raw_gyro_pitch = (int16_t)(Wire.read()<<8|Wire.read());                                 //Add the low and high byte to the gyro_y variable
-  raw_gyro_yaw = (int16_t)(Wire.read()<<8|Wire.read());                                 //Add the low and high byte to the gyro_z variable
+  Wire.beginTransmission(0x69);
+  Wire.write(0x3B);
+  Wire.endTransmission();
+  Wire.requestFrom(0x69,14);
+  while(Wire.available() < 14);
+  accelY = (int16_t)(Wire.read()<<8|Wire.read());
+  accelX = (int16_t)(Wire.read()<<8|Wire.read());
+  accelZ = (int16_t)(Wire.read()<<8|Wire.read());
+  temperature = (int16_t)(Wire.read()<<8|Wire.read());
+  rawGyroRoll = (int16_t)(Wire.read()<<8|Wire.read());
+  rawGyroPitch = (int16_t)(Wire.read()<<8|Wire.read());
+  rawGyroYaw = (int16_t)(Wire.read()<<8|Wire.read());
   
-  gyro_yaw   = (float)raw_gyro_yaw;
-  gyro_pitch = (float)raw_gyro_pitch;
-  gyro_roll  = (float)raw_gyro_roll;
-
-  gyro_yaw   *= 1;
-  gyro_pitch *= 1;
-  gyro_roll  *= 1;
-
+  gyroYaw   = (float)rawGyroYaw;
+  gyroPitch = (float)rawGyroPitch;
+  gyroRoll  = (float)rawGyroRoll;
 }
 
-
-
-void MPU1_Boot()
+void initializeIMU()
 {
-  Wire.beginTransmission(0x69);                                        //Start communicating with the MPU-6050
-  Wire.write(0x6B);                                                    //Send the requested starting register
-  Wire.write(0x00);                                                    //Set the requested starting register
-  Wire.endTransmission();                                              //End the transmission
-  Wire.beginTransmission(0x69);                                        //Start communicating with the MPU-6050
-  Wire.write(0x1C);                                                    //Send the requested starting register
-  Wire.write(0x00);                                                    //Set the requested starting register
-  Wire.endTransmission();                                              //End the transmission
-  Wire.beginTransmission(0x69);                                        //Start communicating with the MPU-6050
-  Wire.write(0x1B);                                                    //Send the requested starting register
-  Wire.write(0x08);                                                    //Set the requested starting register
+  Wire.beginTransmission(0x69);
+  Wire.write(0x6B);
+  Wire.write(0x00);
   Wire.endTransmission();
-  Wire.beginTransmission(0x69);                                        //Start communicating with the MPU-6050
-  Wire.write(0x1A);                                                    //Send the requested starting register
-  Wire.write(0x03);                                                    //Set the requested starting register
+  Wire.beginTransmission(0x69);
+  Wire.write(0x1C);
+  Wire.write(0x00);
   Wire.endTransmission();
-
+  Wire.beginTransmission(0x69);
+  Wire.write(0x1B);
+  Wire.write(0x08);
+  Wire.endTransmission();
+  Wire.beginTransmission(0x69);
+  Wire.write(0x1A);
+  Wire.write(0x03);
+  Wire.endTransmission();
 }
 
-
-void DEBUG_IMU1()
+void debugIMU()
 {
-  Serial.print(gyro_pitch);
+  Serial.print(gyroPitch);
   Serial.print(" ");
-  Serial.print(gyro_roll);
+  Serial.print(gyroRoll);
   Serial.print(" ");
-  Serial.print(gyro_yaw);
+  Serial.print(gyroYaw);
   Serial.println(";");  
 }
 
-void GYROMOTION(int axis, int duration, int degree)
+void executeGyroMotion(int axis, int duration, int degree)
 {
-IMU1READ();
-DEBUG_IMU1();
-  while(micros() - loop_timer < 4000)
+  readIMU();
+  debugIMU();
+  while(micros() - loopTimer < 4000)
   {
   }           
   rp2040.wdt_reset();                  
-  loop_timer = micros(); 
+  loopTimer = micros(); 
 }
 
-void MISSIONREAD()
+void readMission()
 {
-for(POM=0; POM<20; POM++)
+  for(pendingOperation = 0; pendingOperation < 20; pendingOperation++)
+  {
+    executeMission(actionType, actionDuration, param1, param2, param3);
+  }
+}
+
+void executeMission(int tempType, int tempDuration, int tempParam1, int tempParam2, int tempParam3)
 {
-  MISSIONEXEC(type,duration,param1,param2,param3);
+  switch (tempType) 
+  {
+    case 2:
+      // DISABLE   ADCS
+      break;
+    case 3:
+      // SELFTEST  ADCS
+      break;
+    case 4:
+      // CALIBRATE ADCS
+      break;
+    case 5:
+      rp2040.reboot();
+      break;
+    case 6:
+      // ENABLE    ADCS
+      break;
+    case 7:
+      executeGyroMotion(actionAxis, actionDuration, actionDegree);
+      break;
+    case 8:
+      // PHOENIX
+      break;
+    case 9:
+      // SAFE
+      break;
+    case 10:
+      // NORMAL
+      break;
+    case 11:
+      // OVRD
+      break;
+    default:
+      break;
+  }
 }
-}
-
-void MISSIONEXEC(int temp_type, int temp_duration, int temp_param1, int temp_param2, int temp_param3)
-{
-switch (temp_type) 
-{
-  case 2:
-  //DISABLE   ADCS
-    break;
-  case 3:
-  //SELFTEST  ADCS
-    break;
-  case 4:
-  //CALIBRATE ADCS
-    break;
-  case 5:
-  rp2040.reboot();
-    break;
-  case 6:
-  //ENABLE    ADCS
-    break;
-  case 7:
-  GYROMOTION(axis, duration, degree);
-    break;
-  case 8:
-//PHOENIX
-    break;
-  case 9:
-//SAFE
-    break;
-  case 10:
-//NORMAL
-    break;
-  case 11:
-//OVRD
-    break;
-
-  default:
-    break;
-}
-
-}
-
-
-
-
-
-
-
