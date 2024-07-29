@@ -2,7 +2,7 @@
 ////////////////////////////////////////////  
 /*
 Zarvan Movdawalla
-Version 0.3 (ADCS+PRIMCOMP)
+Version 0.4 (ADCS+PRIMCOMP)
 ________________________________________
 DEVELOPED AT MPSTME, INDIA.
 PART OF ASLS (Air Sea Land Space) initiative by Zarvan Movdawalla.
@@ -76,7 +76,7 @@ int POM, type, duration, param1,param2,param3,param4,param5 = 0;
 
 
 int16_t MP1[20][10] = 
-{ 
+
 
 
 /* TYPES OF ACTIONS
@@ -98,7 +98,7 @@ int16_t MP1[20][10] =
 
 //[TYPE] [DURATION] [PARAM1] [PARAM2] [PARAM3] 
 */
-
+{
   {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -265,15 +265,9 @@ void GYROMOTION(int axis, int duration, int degree)
 {
 IMU1READ();
 DEBUG_IMU1();
-
-
-
-
   while(micros() - loop_timer < 4000)
   {
-    
   }           
-  
   rp2040.wdt_reset();                  
   loop_timer = micros(); 
 }
@@ -286,10 +280,9 @@ for(POM=0; POM<20; POM++)
 }
 }
 
-void MISSIONEXEC(int type, int duration,int param1,int param2,int param3)
+void MISSIONEXEC(int temp_type, int temp_duration, int temp_param1, int temp_param2, int temp_param3)
 {
-
-switch (type) 
+switch (temp_type) 
 {
   case 2:
   //DISABLE   ADCS
