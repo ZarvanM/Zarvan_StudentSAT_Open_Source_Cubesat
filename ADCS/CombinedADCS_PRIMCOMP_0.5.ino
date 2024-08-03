@@ -2,7 +2,7 @@
 ////////////////////////////////////////////  
 /*
 Zarvan Movdawalla
-Version 0.4 (ADCS+PRIMCOMP)
+Version 0.5 (ADCS+PRIMCOMP)
 ________________________________________
 DEVELOPED AT MPSTME, INDIA.
 PART OF ASLS (Air Sea Land Space) initiative by Zarvan Movdawalla.
@@ -64,13 +64,16 @@ uint32_t loopTimer = 0;
 int eepromRead1 = 0, eepromRead2 = 0;
 int watchdogTimer = 4000;
 float gyroRoll, gyroPitch, gyroYaw;
-int rawGyroRoll, rawGyroPitch, rawGyroYaw;
+float rawGyroRoll, rawGyroPitch, rawGyroYaw;
 float accelX, accelY, accelZ;
-int temperature;
+int RTCtemp,IMUtemp,MCUtemp;
 float gyroRollCal, gyroPitchCal, gyroYawCal;
 float accelXCal, accelYCal, accelZCal;
 int actionAxis, actionDegree = 0;
 int pendingOperation, actionType, actionDuration, param1, param2, param3, param4, param5 = 0;
+float IMUPitch, IMURoll, IMUYaw = 0.0;
+
+int opfreq = 0;
 
 int16_t missionPlan[20][10] = {
   {1, 0, 0, 0, 1, 2, 3, 0, 0, 0},
@@ -90,19 +93,34 @@ int16_t missionPlan[20][10] = {
 void setup()
 {
   rp2040.wdt_begin(watchdogTimer);
+  opfreq = rp2040.f_cpu()/1000000;
   startup();
   printMissionPlan();
   beginCommunications();
   initializeEEPROM();
-  setupRTC();
+  getRTC();
   initializeIMU();
+  calibrateIMU();
   rp2040.wdt_reset(); 
   loopTimer = micros(); 
 }
 
 void loop()
 {
-  readMission();
+ readIMU();
+ debugIMU();
+ getRTC();
+
+
+
+while(micros() - loopTimer < 4000)
+  {
+  noncritDEBUG();
+  }           
+  rp2040.wdt_reset();                  
+  loopTimer = micros(); 
+ 
+  //readMission();
 }
 
 void startup()
@@ -117,6 +135,20 @@ void startup()
   Serial.println(" RP2040: 133MHz ");  
   Serial.println("WATCHDOG IS ALIVE");  
 }
+
+void noncritDEBUG()
+{
+  printMissionPlan();
+}
+
+
+
+
+
+
+
+
+
 
 void printMissionPlan()
 {
@@ -154,7 +186,7 @@ void initializeEEPROM()
   Serial.println(eepromRead2);
 }
 
-void setupRTC()
+void getRTC()
 {
   DateTime now = rtc.now();
 
@@ -169,7 +201,13 @@ void setupRTC()
   Serial.print(now.minute(), DEC);
   Serial.print(':');
   Serial.print(now.second(), DEC);
-  Serial.println(")");
+  Serial.print(") ");
+
+  RTCtemp = rtc.getTemperature();
+  Serial.print(RTCtemp);
+  Serial.print(" ");
+  Serial.println(IMUtemp);
+
 }
 
 void readIMU()
@@ -179,17 +217,18 @@ void readIMU()
   Wire.endTransmission();
   Wire.requestFrom(0x69,14);
   while(Wire.available() < 14);
-  accelY = (int16_t)(Wire.read()<<8|Wire.read());
-  accelX = (int16_t)(Wire.read()<<8|Wire.read());
-  accelZ = (int16_t)(Wire.read()<<8|Wire.read());
-  temperature = (int16_t)(Wire.read()<<8|Wire.read());
+  accelY  = (int16_t)(Wire.read()<<8|Wire.read());
+  accelX  = (int16_t)(Wire.read()<<8|Wire.read());
+  accelZ  = (int16_t)(Wire.read()<<8|Wire.read());
+  IMUtemp = (int16_t)(Wire.read()<<8|Wire.read());
+  IMUtemp = ((IMUtemp+521)/340) + 35;
+  MCUtemp = analogReadTemp();
   rawGyroRoll = (int16_t)(Wire.read()<<8|Wire.read());
   rawGyroPitch = (int16_t)(Wire.read()<<8|Wire.read());
   rawGyroYaw = (int16_t)(Wire.read()<<8|Wire.read());
-  
-  gyroYaw   = (float)rawGyroYaw;
-  gyroPitch = (float)rawGyroPitch;
-  gyroRoll  = (float)rawGyroRoll;
+  gyroYaw   = (float)rawGyroYaw*0.0000611;
+  gyroPitch = (float)rawGyroPitch*0.0000611;
+  gyroRoll  = (float)rawGyroRoll*0.0000611;
 }
 
 void initializeIMU()
@@ -212,13 +251,52 @@ void initializeIMU()
   Wire.endTransmission();
 }
 
+void calibrateIMU()
+{
+    rp2040.wdt_reset(); 
+
+for (int cal_int = 0; cal_int < 2500 ; cal_int ++)
+  {                 
+    readIMU();                                              
+      gyroRollCal += gyroRoll;                                                     //Ad roll value to gyro_roll_cal.
+      gyroPitchCal += gyroPitch;                                                   //Ad pitch value to gyro_pitch_cal.
+      gyroYawCal += gyroYaw;                                             
+    delayMicroseconds(3600);                                                          
+      rp2040.wdt_reset(); 
+  }
+  
+  gyroRollCal /= 2500;                                                  
+  gyroPitchCal /= 2500;                                                  
+  gyroYawCal /= 2500;        
+
+  Serial.println("GYRO CAL RESULTS: P, Y, R");
+  Serial.print(gyroPitchCal,8);
+  Serial.print(" ");
+  Serial.print(gyroYawCal,8);
+  Serial.print(" ");
+  Serial.println(gyroRollCal,8);
+  rp2040.wdt_reset();
+  delay(2000); 
+  rp2040.wdt_reset();
+}
+
 void debugIMU()
 {
-  Serial.print(gyroPitch);
+  gyroRoll  -= gyroRollCal;                                  //Subtact the manual gyro roll calibration value.
+  gyroPitch -= gyroPitchCal;                                //Subtact the manual gyro pitch calibration value.
+  gyroYaw   -= gyroYawCal;                
+  
+  IMUPitch += (float)gyroPitch;                                  
+  IMURoll  += (float)gyroRoll;  
+  IMUYaw   += (float)gyroYaw;
+  
+  
+  
+  Serial.print(IMUPitch);
   Serial.print(" ");
-  Serial.print(gyroRoll);
+  Serial.print(IMURoll);
   Serial.print(" ");
-  Serial.print(gyroYaw);
+  Serial.print(IMUYaw);
   Serial.println(";");  
 }
 
@@ -226,6 +304,7 @@ void executeGyroMotion(int axis, int duration, int degree)
 {
   readIMU();
   debugIMU();
+  
   while(micros() - loopTimer < 4000)
   {
   }           
@@ -235,11 +314,15 @@ void executeGyroMotion(int axis, int duration, int degree)
 
 void readMission()
 {
+    rp2040.wdt_reset(); 
+
   for(pendingOperation = 0; pendingOperation < 20; pendingOperation++)
   {
     executeMission(actionType, actionDuration, param1, param2, param3);
   }
 }
+
+
 
 void executeMission(int tempType, int tempDuration, int tempParam1, int tempParam2, int tempParam3)
 {
