@@ -1,5 +1,11 @@
 # Z-Tek_Cubesat_ADCS
 
+## Contact Us
+
+Email us at asls.mpstme@gmail.com for commercial licensing, technical assistance, or any other queries.
+
+
+
 ## Ad Astra Per Aspera
 
 Developed by Zarvan Movdawalla and team at MPSTME, India, the Z-Tek_Cubesat_ADCS is part of the ASLS initiative. This project focuses on creating a 3U+ Cubesat with a rudimentary yet robust ADCS and fail-tolerant architecture, designed exclusively for academic and research purposes.
