@@ -38,4 +38,4 @@ This is a completely open-source initiative. Contributions are welcome! Please e
 ### Acknowledgments
 
 - Thanks to Zarvan Movdawalla for his leadership in the ASLS initiative.
-- Gratitude to the team and faculty at MPSTME for their ongoing support.
+- Gratitude to the team and faculty at MPSTME for their ongoing support
